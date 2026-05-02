@@ -1,0 +1,243 @@
+import random
+import time
+import sys
+import os
+
+# ---------------- SAVE SYSTEM ----------------
+SAVE_FILE = "save.txt"
+
+def load_balance():
+    if os.path.exists(SAVE_FILE):
+        try:
+            with open(SAVE_FILE, "r") as f:
+                return int(f.read().strip())
+        except:
+            return 300
+    return 300
+
+def save_balance():
+    with open(SAVE_FILE, "w") as f:
+        f.write(str(balance))
+
+# ---------------- INIT ----------------
+balance = load_balance()
+
+GREEN = "\033[92m"
+RESET = "\033[0m"
+
+CASINO_ART = f"""
+{GREEN}
+  ██████╗ █████╗ ███████╗██╗███╗   ██╗ ██████╗
+ ██╔════╝██╔══██╗██╔════╝██║████╗  ██║██╔═══██╗
+ ██║     ███████║███████╗██║██╔██╗ ██║██║   ██║
+ ██║     ██╔══██║╚════██║██║██║╚██╗██║██║   ██║
+ ╚██████╗██║  ██║███████║██║██║ ╚████║╚██████╔╝
+  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝ 
+
+        🎰 TOTALLY FAIR TERMINAL CASINO 🎰
+{RESET}
+"""
+
+# ---------------- UTIL ----------------
+def dealer(msg):
+    print("🎲 " + msg)
+
+def show_balance():
+    print(f"\n💰 Balance: {balance}\n")
+
+# ---------------- COINFLIP ----------------
+def coinflip(bet):
+    global balance
+    if bet > balance:
+        dealer("Not enough coins.")
+        return
+
+    choice = input("Heads or tails: ").lower()
+    result = random.choice(["heads", "tails"])
+    print("Result:", result)
+
+    if choice == result:
+        dealer("You win.")
+        balance += bet
+    else:
+        dealer("You lose.")
+        balance -= bet
+
+    save_balance()
+
+# ---------------- SLOTS ----------------
+def slots(bet):
+    global balance
+    if bet > balance:
+        dealer("Not enough coins.")
+        return
+
+    symbols = ["🍒", "🍋", "💎", "7️⃣"]
+    r = [random.choice(symbols) for _ in range(3)]
+
+    print(" | ".join(r))
+
+    if r[0] == r[1] == r[2]:
+        dealer("JACKPOT!")
+        balance += bet * 3
+    else:
+        dealer("No win.")
+        balance -= bet
+
+    save_balance()
+
+# ---------------- BLACKJACK ----------------
+def blackjack(bet):
+    global balance
+    if bet > balance:
+        dealer("Not enough coins.")
+        return
+
+    def draw():
+        return random.randint(1, 11)
+
+    player = [draw(), draw()]
+    dealer_hand = [draw(), draw()]
+
+    def total(h): return sum(h)
+
+    print("Your hand:", player, "=", total(player))
+    print("Dealer shows:", dealer_hand[0])
+
+    while total(player) < 21:
+        move = input("hit/stand: ").lower()
+        if move == "hit":
+            player.append(draw())
+            print("You:", player, total(player))
+        else:
+            break
+
+    if total(player) > 21:
+        dealer("Bust.")
+        balance -= bet
+        save_balance()
+        return
+
+    while total(dealer_hand) < 17:
+        dealer_hand.append(draw())
+
+    print("Dealer:", dealer_hand, total(dealer_hand))
+
+    if total(player) > 21 or total(dealer_hand) > total(player):
+        dealer("You lose.")
+        balance -= bet
+    elif total(player) > total(dealer_hand):
+        dealer("You win.")
+        balance += bet
+    else:
+        dealer("Draw.")
+
+    save_balance()
+
+# ---------------- CRASH ----------------
+def crash(bet):
+    global balance
+    if bet > balance:
+        dealer("Not enough coins.")
+        return
+
+    multiplier = 1.0
+    print("\n📈 CRASH GAME STARTING...")
+
+    cash_out = input("Cash out multiplier (e.g. 2): ")
+    try:
+        cash_out = float(cash_out)
+    except:
+        dealer("Invalid cashout.")
+        return
+
+    while True:
+        time.sleep(0.7)
+        multiplier += random.uniform(0.1, 0.8)
+        print(f"Multiplier: x{multiplier:.2f}")
+
+        if random.random() < (multiplier / 25):
+            dealer("💥 CRASHED!")
+            balance -= bet
+            save_balance()
+            return
+
+        if multiplier >= cash_out:
+            winnings = int(bet * multiplier)
+            dealer(f"Cashed out at x{multiplier:.2f}")
+            balance += winnings
+            save_balance()
+            return
+
+# ---------------- MENU ----------------
+def menu():
+    print(CASINO_ART)
+    print(f"💰 Balance: {balance}")
+    print("""
+01 - Coin Flip
+02 - Slots
+03 - Blackjack
+04 - Check Balance
+05 - Crash Game
+06 - Exit
+""")
+
+# ---------------- MAIN ----------------
+def main():
+    global balance
+
+    while True:
+        try:
+            menu()
+            choice = input("Select option (01-06): ").strip()
+
+            # -------- SECRET DEV COMMAND --------
+            if choice.startswith("dev"):
+                try:
+                    amount = int(choice.split()[1])
+                    balance += amount
+                    save_balance()
+                    dealer(f"DEV MODE: +{amount} coins injected.")
+                except:
+                    dealer("Usage: dev 100")
+                continue
+
+            if choice == "01":
+                coinflip(int(input("Bet: ")))
+
+            elif choice == "02":
+                slots(int(input("Bet: ")))
+
+            elif choice == "03":
+                blackjack(int(input("Bet: ")))
+
+            elif choice == "04":
+                show_balance()
+
+            elif choice == "05":
+                crash(int(input("Bet: ")))
+
+            elif choice == "06":
+                dealer("Goodbye.")
+                save_balance()
+                break
+
+            else:
+                dealer("Invalid option.")
+
+            if balance <= 0:
+                dealer("You're broke.")
+                break
+
+            input("\nPress Enter to continue...")
+
+        except KeyboardInterrupt:
+            print("\n\n🎰 Casino closed.")
+            save_balance()
+            sys.exit()
+
+        except ValueError:
+            dealer("Invalid number.")
+
+if __name__ == "__main__":
+    main()
